@@ -1,0 +1,16 @@
+spring:
+  profiles:
+    default: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      naming:
+        implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    hikari:
+      connection-test-query: select 1
+      minimum-idle: 1
+      maximum-pool-size: 5
+      pool-name: pool-auth-server
