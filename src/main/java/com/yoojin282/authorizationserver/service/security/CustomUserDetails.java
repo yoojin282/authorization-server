@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
@@ -24,8 +25,8 @@ public class CustomUserDetails implements UserDetails {
         this.name = user.getName();
         this.enabled = user.getEnabled();
         this.authorized = user.getAuthorized();
-        this.roles = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
+        this.roles = Arrays.stream(user.getRoles().split(","))
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                 .collect(Collectors.toList());
     }
     @Override

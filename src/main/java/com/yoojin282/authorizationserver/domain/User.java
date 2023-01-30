@@ -1,12 +1,10 @@
 package com.yoojin282.authorizationserver.domain;
 
-import com.yoojin282.authorizationserver.module.user.support.Role;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.DynamicInsert;
 
 import java.time.Instant;
-import java.util.List;
 
 @DynamicInsert
 @Getter @Setter
@@ -16,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(unique = true, length = 100)
     private String email;
@@ -24,8 +22,8 @@ public class User {
     private String name;
     @Column
     private String password;
-    @OneToMany
-    private List<Role> roles;
+    @Column(length = 50)
+    private String roles;
     @Column(columnDefinition = "tinyint(1) default 1")
     private Boolean enabled;
     @Column(columnDefinition = "tinyint(1) default 0")
@@ -37,7 +35,5 @@ public class User {
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
-        this.enabled = true;
-        this.authorized = false;
     }
 }

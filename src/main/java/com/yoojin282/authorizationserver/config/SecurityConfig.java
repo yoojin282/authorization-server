@@ -5,35 +5,40 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import com.yoojin282.authorizationserver.config.properties.AuthServerProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
-import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
-import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
+import java.io.IOException;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.UUID;
+import java.time.Duration;
 
+
+@EnableConfigurationProperties({
+        AuthServerProperties.class
+})
 @Configuration
 public class SecurityConfig {
 
@@ -59,32 +64,18 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository() {
-        RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("test-client")
-                .clientSecret("{noop}secret")
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .redirectUri("https://oauth.pstmn.io/v1/callback")
-                .scope(OidcScopes.OPENID)
-                .scope(OidcScopes.PROFILE)
-                .clientSettings(ClientSettings.builder()
-                        .requireAuthorizationConsent(true)
-                        .build())
-                .build();
-        return new InMemoryRegisteredClientRepository(registeredClient);
+    public RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcRegisteredClientRepository(jdbcTemplate);
     }
 
     @Bean
-    public JWKSource<SecurityContext> jwtSource() {
-        KeyPair keyPair = generateRsaKey();
+    public JWKSource<SecurityContext> jwtSource(AuthServerProperties properties) throws UnrecoverableKeyException, CertificateException, IOException, KeyStoreException, NoSuchAlgorithmException {
+        KeyPair keyPair = generateRsaKey(properties);
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
         RSAKey rsaKey = new RSAKey.Builder(publicKey)
                 .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
+                .keyID("auth-server")
                 .build();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return new ImmutableJWKSet<>(jwkSet);
@@ -105,16 +96,20 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    private static KeyPair generateRsaKey() {
-        KeyPair keyPair;
-        KeyPairGenerator keyPairGenerator;
-        try {
-            keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException(e);
-        }
-        keyPairGenerator.initialize(2048);
-        keyPair = keyPairGenerator.generateKeyPair();
-        return keyPair;
+    @Bean
+    public TokenSettings tokenSettings() {
+        return TokenSettings.builder()
+                .refreshTokenTimeToLive(Duration.ofDays(30L))
+                .accessTokenTimeToLive(Duration.ofMinutes(30L))
+                .build();
+    }
+
+    private static KeyPair generateRsaKey(AuthServerProperties properties) throws IOException, CertificateException, KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException {
+        ClassPathResource keyFile = new ClassPathResource(properties.getKeyPath());
+        KeyStore keyStore = KeyStore.getInstance(keyFile.getFile(), properties.getKeyPassword().toCharArray());
+        Key key = keyStore.getKey(properties.getAlias(), properties.getStorePassword().toCharArray());
+        Certificate cert = keyStore.getCertificate(properties.getAlias());
+        PublicKey publicKey = cert.getPublicKey();
+        return new KeyPair(publicKey, (PrivateKey) key);
     }
 }
