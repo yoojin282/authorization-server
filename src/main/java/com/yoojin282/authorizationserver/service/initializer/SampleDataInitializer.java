@@ -1,6 +1,7 @@
 package com.yoojin282.authorizationserver.service.initializer;
 
 import com.yoojin282.authorizationserver.domain.User;
+import com.yoojin282.authorizationserver.module.client.JpaRegisteredClientRepository;
 import com.yoojin282.authorizationserver.module.user.UserService;
 import com.yoojin282.authorizationserver.module.user.support.Role;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,6 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Component;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SampleDataInitializer implements InitializingBean {
     private final UserService userService;
-    private final RegisteredClientRepository clientRepository;
+    private final JpaRegisteredClientRepository jpaRegisteredClientRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenSettings tokenSettings;
 
@@ -77,7 +77,7 @@ public class SampleDataInitializer implements InitializingBean {
                         .requireAuthorizationConsent(true)
                         .build())
                 .build();
-        clientRepository.save(registeredClient);
+        jpaRegisteredClientRepository.save(registeredClient);
     }
 
     @Override
