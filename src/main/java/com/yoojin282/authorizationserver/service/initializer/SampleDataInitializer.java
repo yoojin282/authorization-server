@@ -16,6 +16,7 @@ import org.springframework.security.oauth2.server.authorization.settings.ClientS
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -26,7 +27,6 @@ public class SampleDataInitializer implements InitializingBean {
     private final UserService userService;
     private final JpaRegisteredClientRepository jpaRegisteredClientRepository;
     private final PasswordEncoder passwordEncoder;
-    private final TokenSettings tokenSettings;
 
     public void init() {
         initUser();
@@ -61,6 +61,10 @@ public class SampleDataInitializer implements InitializingBean {
     }
 
     private void initClient() {
+        TokenSettings tokenSettings = TokenSettings.builder()
+                .refreshTokenTimeToLive(Duration.ofDays(30L))
+                .accessTokenTimeToLive(Duration.ofMinutes(30L))
+                .build();
         RegisteredClient registeredClient = RegisteredClient.withId("test-client")
                 .clientId("test-client")
                 .clientSecret(passwordEncoder.encode("secret"))
@@ -75,6 +79,25 @@ public class SampleDataInitializer implements InitializingBean {
                 .tokenSettings(tokenSettings)
                 .clientSettings(ClientSettings.builder()
                         .requireAuthorizationConsent(true)
+                        .build())
+                .build();
+        jpaRegisteredClientRepository.save(registeredClient);
+
+        tokenSettings = TokenSettings.builder()
+                .accessTokenTimeToLive(Duration.ofDays(1L))
+                .build();
+        registeredClient = RegisteredClient.withId("resource-client")
+                .clientId("resource-client")
+                .clientSecret(passwordEncoder.encode("secret"))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .redirectUri("https://oauth.pstmn.io/v1/callback")
+                .scope("client")
+                .scope("user")
+                .tokenSettings(tokenSettings)
+                .clientSettings(ClientSettings.builder()
+                        .requireAuthorizationConsent(false)
                         .build())
                 .build();
         jpaRegisteredClientRepository.save(registeredClient);
